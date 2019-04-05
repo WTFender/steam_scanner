@@ -1,4 +1,5 @@
 # steam_scanner
+python2/3 compatible
 
 ## demo
 [wtfender.com/steam-scanner](https://wtfender.com/steam-scanner)
@@ -83,14 +84,3 @@ GROUP BY pl.steamid;
 
 ## visualize
 ![](https://i.imgur.com/qcW4o5e.png "wtfender's scan activity")
-
-## python3 compatible
-```c
-pip3 install -r requirements.txt
-
-2to3-2.7 -w steam_scanner.py
-> ...diff is all print statements...
-
-python3 steam_scanner.py
-> 2019-04-05 06:04:07.642490: Scanned 58 profiles and 0 links.
-```
