@@ -1,0 +1,5 @@
+*
+!.gitignore
+!README.md
+!steam_scanner.py
+!database_setup.py
