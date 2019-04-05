@@ -1,5 +1,8 @@
 # steam_scanner
 
+## demo
+[wtfender.com/steam-scanner](https://wtfender.com/steam-scanner)
+
 ## setup
 1. register for api keys
     - [steam](https://steamcommunity.com/dev/apikey)
