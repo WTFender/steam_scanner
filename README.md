@@ -21,6 +21,10 @@ python2/3 compatible
     export STEAM_API_KEY="api_key"
     export GOOGLE_API_KEY="api_key"
     ```
+3. clone from source
+    ```
+    git clone https://github.com/WTFender/steam_scanner.git && cd steam-scanner
+    ```
 
 3. install requirements  
     ```bash
@@ -106,3 +110,12 @@ GROUP BY pl.steamid;
 
 ## visualize
 ![](https://i.imgur.com/qcW4o5e.png "wtfender's scan activity")
+
+## scale
+deploy on [google app engine](https://cloud.google.com/appengine/)
+
+1. git clone https://github.com/WTFender/steam_scanner.git && cd
+
+
+
+gcloud app deploy --project=google_project
