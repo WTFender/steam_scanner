@@ -11,10 +11,13 @@ python2/3 compatible
 
 2. set environment variables
     ```bash
-    export MYSQL_USER="user"`
+    export MYSQL_USER="user"
     export MYSQL_PASS="password"
     export MYSQL_HOST="host"
     export MYSQL_DB="database"
+    export MYSQL_CERT="SSL_CERT"
+    export MYSQL_KEY="SSL_KEY"
+    export MYSQL_CA="SSL_CA"
     export STEAM_API_KEY="api_key"
     export GOOGLE_API_KEY="api_key"
     ```
