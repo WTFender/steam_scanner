@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from steam.steamid import SteamID
 from xml.etree import ElementTree
 from bs4 import BeautifulSoup
@@ -24,7 +24,16 @@ class Profile:
         self.timecreated = timecreated
         self.summary = None
         self.vacBanned = 0
-        self.tradeBanState = 0
+        self.tradeBanState = None
+        self.links = []
+
+
+class Link:
+    def __init__(self, url):
+        self.url = url
+        self.is_threat = 0
+        self.threatType = None
+
 
 # connect to database
 def connect_db():
@@ -33,11 +42,15 @@ def connect_db():
     db_pass = environ["MYSQL_PASS"]
     db_host = environ["MYSQL_HOST"]
     db_db = environ["MYSQL_DB"]
+    db_cert = environ["MYSQL_CERT"]
+    db_key = environ["MYSQL_KEY"]
+    db_ca = environ["MYSQL_CA"] 
     # connect to db
-    cnx = mysql.connector.connect(user=db_user, password=db_pass,
-                                    host=db_host, database=db_db)
+    cnx = mysql.connector.connect(user=db_user, password=db_pass, host=db_host, database=db_db,
+                                    ssl_cert=db_cert, ssl_key=db_key, ssl_ca=db_ca)
     # return cursor
     return cnx, cnx.cursor()
+
 
 # get community profile info
 def get_community_profile(steamid):
@@ -46,31 +59,39 @@ def get_community_profile(steamid):
         xml = ElementTree.fromstring(r.content)
     # gracefully handle empty profiles
     except Exception as e:
-        print e
-        print r.content
+        print(e)
+        print(r.content)
+    links = []
     summary = None
     vacBanned = 0
-    tradeBanState = 0
+    tradeBanState = None
     # find attributes in XML profile
     for child in xml:
         try:
             if child.tag == "summary":
                 summary = child.text
             elif child.tag == "vacBanned":
-                vacBanned = child.text
+                vacBanned = int(child.text)
             elif child.tag == "tradeBanState":
-                tradeBanState = child.text
+                if child.text != "None":
+                    tradeBanState = child.text
         except Exception as e:
-            print e
-    return summary, vacBanned, tradeBanState
+            print(e)
+    if summary:
+        for l in find_links(summary, steamid):
+            links.append(Link(l))
+    return summary, vacBanned, tradeBanState, links
+
 
 # find links in summary
-def find_links(summary, steamid, cnx, c):
+def find_links(summary, steamid):
     urls = []
     try:
         soup = BeautifulSoup(summary, "html.parser")
     except:
         return urls
+    # connect to database (connection, cursor)
+    cnx, c = connect_db()
     # steam href tags anything that looks like a link
     # scrape href tags (urls) from summary html
     for link in soup.findAll('a', attrs={'href': re.compile("^https?://")}):
@@ -78,8 +99,8 @@ def find_links(summary, steamid, cnx, c):
             url = link.get("href").replace("https://steamcommunity.com/linkfilter/?url=", "")
             urls.append(url)
         except Exception as e:
-            print e
-            print link
+            print(e)
+            print(link)
             continue
         # commit link to db
         c.execute("INSERT INTO links (url, display) "
@@ -94,22 +115,25 @@ def find_links(summary, steamid, cnx, c):
         cnx.commit()
     return urls
 
-# get n profiles
-def get_profiles(n):
-    # generate 100 steam64IDs, this needs to be improved
-    # as it is not exactly "random" nor a conclusive range of ids
+
+def get_profiles(id):
     ids = ""
-    for i in range(0,n):
-        ids = ids + ",%s" % SteamID(id=randint(1, 1000000000), 
-                                    type="Individual", 
-                                    universe="Public", 
-                                    instance=1).as_64
+    # if arg is string, expect single steam64id
+    if type(id) == str:
+        ids = id
+    # if arg is int, generate n random steam64ids
+    elif type(id) == int:
+        # [NEEDS IMPROVED]
+        # this isn't random, nor conclusive method of generating steamids
+        for i in range(0,id):
+            ids = ids + ",%s" % SteamID(id=randint(1, 1000000000), 
+                                        type="Individual", 
+                                        universe="Public", 
+                                        instance=1).as_64
     # get player info via steam WebAPI (100 max)
     s_api_key = environ['STEAM_API_KEY']
     steam_api = WebAPI(key=s_api_key)
     players = steam_api.call('ISteamUser.GetPlayerSummaries', steamids=ids)['response']['players'] 
-    # get 1 specific profile (mostly for testing )
-    # players = steam_api.call('ISteamUser.GetPlayerSummaries', steamids="76561198130753269")['response']['players']
     # build profile objects
     profiles = []
     for p in players:
@@ -134,7 +158,29 @@ def get_profiles(n):
             # if no steam64id, discard
             if str(e) == "'steamid'":
                 continue
+    # if profile is configured and public
+    for p in profiles:
+        if p.profilestate == 1 and p.communityvisibilitystate == 3:
+            # get attributes from community profile 
+            p.summary, p.vacBanned, p.tradeBanState, p.links = get_community_profile(p.steamid)
     return profiles
+
+
+def check_profile_urls(profiles):
+    urls = []
+    for p in profiles:
+        for l in p.links:
+            urls.append(l.url)
+    url_threats = check_urls(urls)
+    # update profile links with threats
+    for t in url_threats:
+        for p in profiles:
+            for l in p.links:
+                if t['url'] == l.url:
+                    l.is_threat = 1
+                    l.threatType = t['threatType']
+    return profiles
+
 
 # scan urls with google safebrowsing api
 def scan_urls(urls):
@@ -150,15 +196,20 @@ def scan_urls(urls):
     # return threat matches
     return requests.post(g_api, params=params, json=payload).json()
 
+
 # update urls with threat info
-def check_urls(urls, cnx, c):
+def check_urls(urls):
+    threats = []
     # convert urls list to dict
     entries = []
     for url in urls:
         entries.append({"url": url})
     try:
+        # connect to database (connection, cursor)
+        cnx, c = connect_db()
         # submit urls to be scanned, returns threat matches
         for match in scan_urls(entries)['matches']:
+            threats.append({"url": match['threat']['url'], "threatType": match['threatType']})
             # commit updated link threat info to db
             c.execute("UPDATE links SET is_threat = 1, threatType = %s, threatEntryType = %s WHERE url = %s",
                         (match['threatType'], match['threatEntryType'], match['threat']['url']))
@@ -168,20 +219,15 @@ def check_urls(urls, cnx, c):
         if str(e) == "'matches'":
             pass
     cnx.close()
+    return threats
+
 
 # get links, return urls
-def get_links(profiles, cnx, c):
+def get_links(profiles):
     profile_links = []
     for p in profiles:
-        # if profile is configured and public
-        if p.profilestate == 1 and p.communityvisibilitystate == 3:
-            # get attributes from community profile 
-            p.summary, p.vacBanned, p.tradeBanState = get_community_profile(p.steamid)
-            # remove special chars
-            if p.summary:
-                p.summary = p.summary.encode("ascii", errors="ignore")
-            if p.personaname:
-                p.personaname = p.personaname.encode("ascii", errors="ignore")
+        # connect to database (connection, cursor)
+        cnx, c = connect_db()
         # commit profile to db
         c.execute("INSERT INTO profiles (steamid, communityvisibilitystate, profilestate, personaname, profileurl, avatar, timecreated, summary, vacBanned, tradeBanState) "
                     "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
@@ -194,17 +240,53 @@ def get_links(profiles, cnx, c):
                 profile_links.append(l)
     return profile_links
 
+
+# convert profiles to json
+def profiles_to_json(profiles):
+    # convert objects to dicts
+    dict_profiles = []
+    for p in profiles:
+        links = []
+        for l in p.links:
+            links.append(l.__dict__)
+        p.links = links
+        dict_profiles.append(p.__dict__)
+    # convert dicts to json
+    return json.dumps(dict_profiles)
+
+
+def scan_profiles(ids):
+    # get profiles from steam
+    profiles = get_profiles(ids)
+    # updates profile links with threats
+    profiles = check_profile_urls(profiles)
+    # return profile with associated links
+    return profiles_to_json(profiles)
+
+
+def print_scan_details(scan):
+    p_count = 0
+    l_count = 0
+    t_count = 0
+    for profile in json.loads(scan):
+        p_count += 1
+        for l in profile['links']:
+            l_count += 1
+            if l['is_threat'] == 1:
+                t_count += 1
+    print(("%s: Scanned %s profiles with %s links containing %s threats.") %
+                (datetime.now(), p_count, l_count, t_count))
+
+
 def main():
-    # connect to database (connection, cursor)
-    cnx, c = connect_db()
-    # get steam profiles (100 max at a time)
-    profiles = get_profiles(100)
-    # find links in profile summaries, write to db
-    profile_links = get_links(profiles, cnx, c)
-    # check if urls are malicious, write to db
-    check_urls(profile_links, cnx, c)
-    # print scan info
-    print "%s: Scanned %s profiles and %s links." % (datetime.now(), len(profiles), len(profile_links))
+    # scan specific steam profiles: give str(steam64id)
+    # scan n number of profiles: give int(n)
+    scan = scan_profiles(100)
+    # print scan summary
+    print_scan_details(scan)
+    # uncomment to print json
+    # print(scan)
+
 
 if __name__ == "__main__":
     main()
