@@ -1,5 +1,6 @@
 cron:
-  # this equates to ~1700 steam profiles every 30 minutes
+
+  # scan a batch of 100 profiles every 2 minutes
 - description: "2 min scans"
   url: /api/scan/batch
-  schedule: every 1 minutes
+  schedule: every 2 minutes

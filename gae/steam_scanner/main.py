@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from steam_scanner.steam_scanner import scan_profiles
+from steam_scanner.steam_scanner import scan_profiles, print_scan_details
 from flask import Flask, jsonify
 
 app = Flask(__name__)
@@ -11,13 +11,17 @@ json_ct = {'Content-Type': 'application/json'}
 def api_scan_batch(steamid):
     # batch of 100 random profiles
     if steamid == "batch":
-        return scan_profiles(100), json_ct
+        scan = scan_profiles(100)
+        print_scan_details(scan)
+        return scan, json_ct
     # one steam64id
     try:
         # check format & sanitize input
         if len(steamid) == 17:
             steamid = str(int(steamid))
-            return scan_profiles(steamid), json_ct
+            scan = scan_profiles(steamid)
+            print_scan_details(scan)
+            return scan, json_ct
         else:
             raise Exception
     except:
