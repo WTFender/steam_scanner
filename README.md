@@ -22,15 +22,15 @@ python2/3 compatible
     export GOOGLE_API_KEY="api_key"
     ```
 
-3. setup database
+3. install requirements  
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+4. setup database
     ```bash
     python database_setup.py
     > Database tables created.
-    ```
-    
-4. install requirements  
-    ```bash
-    pip install -r requirements.txt
     ```
 
 ## scan
