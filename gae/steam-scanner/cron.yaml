@@ -1,0 +1,5 @@
+cron:
+  # this equates to ~1700 steam profiles every 30 minutes
+- description: "2 min scans"
+  url: /api/scan/batch
+  schedule: every 1 minutes

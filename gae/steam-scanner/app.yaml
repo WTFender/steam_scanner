@@ -1,0 +1,7 @@
+service: default
+runtime: python37
+
+# import secrets from a file that i can
+# explicitily exclude from source code
+includes:
+- secrets.yaml

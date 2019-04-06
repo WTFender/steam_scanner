@@ -1,12 +1,1 @@
-*
-!.gitignore
-!README.md
-!requirements.txt
-!steam_scanner.py
-!database_setup.py
-!gae/steam_scanner/app.yaml
-!gae/steam_scanner/cron.yaml
-!gae/steam_scanner/main.py
-!gae/steam_scanner/requirements.txt
-!gae/steam_scanner/secrets_example.yaml
-!gae/steam_scanner/steam_scanner/steam_scanner.py
+secrets.yaml
