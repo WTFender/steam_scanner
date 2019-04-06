@@ -37,8 +37,7 @@ python2/3 compatible
    python steam_scanner.py
    > 2019-04-06 14:31:42.309805: Scanned 1 profiles with 2 links containing 2 threats.
    {
-        ...snip...
-        "communityvisibilitystate": 3,
+        "...snip...": 1,
         "links": [
             {
                 "is_threat": 1,
@@ -52,7 +51,7 @@ python2/3 compatible
             }
         ],
         "personaname": "Mr. Cringer Pants",
-        ...snip...
+        "...snip...": 1
     }
 
    ```
