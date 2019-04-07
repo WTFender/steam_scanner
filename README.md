@@ -120,11 +120,10 @@ nano secrets.yaml
 gcloud projects create "project_name"
 gcloud app deploy --project="project_name"
 
-# enable scan job
+# enable scan job (100 profiles per minute)
 gcloud app deploy cron.yaml --project="project_name"
 
-
-
+# scan specific steamID
 curl https://wtfender.com/api/scan/76561198130753269 | python -m json.tool
 
 [
