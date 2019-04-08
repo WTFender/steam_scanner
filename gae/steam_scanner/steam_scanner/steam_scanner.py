@@ -6,7 +6,7 @@ from datetime import datetime
 from random import randint
 from steam import WebAPI
 from os import environ
-import mysql.connector
+import sqlalchemy
 import requests
 import json
 import re
@@ -40,16 +40,21 @@ def connect_db():
     # get database settings
     db_user = environ["MYSQL_USER"]
     db_pass = environ["MYSQL_PASS"]
-    db_host = environ["MYSQL_HOST"]
-    db_db = environ["MYSQL_DB"]
-    db_cert = environ["MYSQL_CERT"]
-    db_key = environ["MYSQL_KEY"]
-    db_ca = environ["MYSQL_CA"] 
-    # connect to db
-    cnx = mysql.connector.connect(user=db_user, password=db_pass, host=db_host, database=db_db,
-                                    ssl_cert=db_cert, ssl_key=db_key, ssl_ca=db_ca)
+    db_name = environ["MYSQL_NAME"]
+    # for TCP connection, uncomment db_host, comment out db_proxy
+    # db_host = "127.0.0.1"
+    db_proxy = environ["MYSQL_PROXY"]
+
+    db = sqlalchemy.create_engine(sqlalchemy.engine.url.URL(
+            drivername='mysql+mysqlconnector',
+            username=db_user,
+            password=db_pass,
+            database=db_name,
+            # for TCP connection, uncomment db_host, comment out query
+            # host=db_host
+            query={'unix_socket': '/cloudsql/{}'.format(db_proxy)}))
     # return cursor
-    return cnx, cnx.cursor()
+    return db.connect()
 
 
 # get community profile info
@@ -90,8 +95,8 @@ def find_links(summary, steamid):
         soup = BeautifulSoup(summary, "html.parser")
     except:
         return urls
-    # connect to database (connection, cursor)
-    cnx, c = connect_db()
+    # connect to database
+    db = connect_db()
     # steam href tags anything that looks like a link
     # scrape href tags (urls) from summary html
     for link in soup.findAll('a', attrs={'href': re.compile("^https?://")}):
@@ -103,16 +108,14 @@ def find_links(summary, steamid):
             print(link)
             continue
         # commit link to db
-        c.execute("INSERT INTO links (url, display) "
+        db.execute("INSERT INTO links (url, display) "
                     "VALUES (%s, %s) "
                     "ON DUPLICATE KEY UPDATE display=%s",
                     (url, link.text, link.text))
-        cnx.commit()
         # commit profile_link to db
-        c.execute("INSERT IGNORE INTO profile_links (url, steamid) "
+        db.execute("INSERT IGNORE INTO profile_links (url, steamid) "
                     "VALUES (%s, %s)",
                     (url, steamid))
-        cnx.commit()
     return urls
 
 
@@ -164,13 +167,12 @@ def get_profiles(steamid):
             # get attributes from community profile 
             p.summary, p.vacBanned, p.tradeBanState, p.links = get_community_profile(p.steamid)
     # commit profiles to db
-    cnx, c = connect_db()
+    db = connect_db()
     for p in profiles:
-        c.execute("INSERT INTO profiles (steamid, communityvisibilitystate, profilestate, personaname, profileurl, avatar, timecreated, summary, vacBanned, tradeBanState) "
+        db.execute("INSERT INTO profiles (steamid, communityvisibilitystate, profilestate, personaname, profileurl, avatar, timecreated, summary, vacBanned, tradeBanState) "
                     "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
                     "ON DUPLICATE KEY UPDATE updated_at=NOW()",
                     (p.steamid, p.communityvisibilitystate, p.profilestate, p.personaname, p.profileurl, p.avatar, p.timecreated, p.summary, p.vacBanned, p.tradeBanState))
-        cnx.commit()
     return profiles
 
 
@@ -213,20 +215,18 @@ def check_urls(urls):
     for url in urls:
         entries.append({"url": url})
     try:
-        # connect to database (connection, cursor)
-        cnx, c = connect_db()
+        # connect to database
+        db = connect_db()
         # submit urls to be scanned, returns threat matches
         for match in scan_urls(entries)['matches']:
             threats.append({"url": match['threat']['url'], "threatType": match['threatType']})
             # commit updated link threat info to db
-            c.execute("UPDATE links SET is_threat = 1, threatType = %s, threatEntryType = %s WHERE url = %s",
+            db.execute("UPDATE links SET is_threat = 1, threatType = %s, threatEntryType = %s WHERE url = %s",
                         (match['threatType'], match['threatEntryType'], match['threat']['url']))
-            cnx.commit()
     except KeyError as e:
         # no matches, handle gracefully
         if str(e) == "'matches'":
             pass
-    cnx.close()
     return threats
 
 

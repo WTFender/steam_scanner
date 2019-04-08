@@ -49,7 +49,7 @@ def connect_db():
             drivername='mysql+mysqlconnector',
             username=db_user,
             password=db_pass,
-            database=db_db,
+            database=db_name,
             # for TCP connection, uncomment db_host, comment out query
             # host=db_host
             query={'unix_socket': '/cloudsql/{}'.format(db_proxy)}))
@@ -227,7 +227,6 @@ def check_urls(urls):
         # no matches, handle gracefully
         if str(e) == "'matches'":
             pass
-    cnx.close()
     return threats
 
 

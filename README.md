@@ -14,7 +14,7 @@ register for api keys
 export MYSQL_USER="user"
 export MYSQL_PASS="password"
 export MYSQL_HOST="host"
-export MYSQL_DB="database"
+export MYSQL_DB="database_name"
 export MYSQL_CERT="ssl_cert"
 export MYSQL_KEY="ssl_key"
 export MYSQL_CA="ssl_ca"
