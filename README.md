@@ -79,7 +79,7 @@ WHERE is_threat=1
 GROUP BY threatType;
 
 +----------+--------------------+
-| bad_links | threatType         |
+| bad_links | threatType        |
 +----------+--------------------+
 |        1 | MALWARE            |
 |        1 | SOCIAL_ENGINEERING |
