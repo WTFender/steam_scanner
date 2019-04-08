@@ -7,8 +7,12 @@ db_user = environ["MYSQL_USER"]
 db_pass = environ["MYSQL_PASS"]
 db_host = environ["MYSQL_HOST"]
 db_db = environ["MYSQL_DB"]
+db_cert = environ["MYSQL_CERT"]
+db_key = environ["MYSQL_KEY"]
+db_ca = environ["MYSQL_CA"] 
 
-cnx = mysql.connector.connect(user=db_user, password=db_pass, host=db_host, database=db_db)
+cnx = mysql.connector.connect(user=db_user, password=db_pass, host=db_host, database=db_db,
+                                ssl_cert=db_cert, ssl_key=db_key, ssl_ca=db_ca)
 c = cnx.cursor()
 
 c.execute("CREATE TABLE IF NOT EXISTS profiles ("
