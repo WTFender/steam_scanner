@@ -15,9 +15,9 @@ export MYSQL_USER="user"
 export MYSQL_PASS="password"
 export MYSQL_HOST="host"
 export MYSQL_DB="database"
-export MYSQL_CERT="SSL_CERT"
-export MYSQL_KEY="SSL_KEY"
-export MYSQL_CA="SSL_CA"
+export MYSQL_CERT="ssl_cert"
+export MYSQL_KEY="ssl_key"
+export MYSQL_CA="ssl_ca"
 export STEAM_API_KEY="api_key"
 export GOOGLE_API_KEY="api_key"
 
@@ -120,11 +120,10 @@ nano secrets.yaml
 gcloud projects create "project_name"
 gcloud app deploy --project="project_name"
 
-# enable scan job
+# enable scan job (100 profiles per minute)
 gcloud app deploy cron.yaml --project="project_name"
 
-
-
+# scan specific steamID
 curl https://wtfender.com/api/scan/76561198130753269 | python -m json.tool
 
 [
