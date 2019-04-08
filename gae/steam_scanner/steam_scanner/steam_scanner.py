@@ -116,16 +116,16 @@ def find_links(summary, steamid):
     return urls
 
 
-def get_profiles(id):
+def get_profiles(steamid):
     ids = ""
     # if arg is string, expect single steam64id
-    if type(id) == str:
-        ids = id
+    if type(steamid) == str:
+        ids = steamid
     # if arg is int, generate n random steam64ids
-    elif type(id) == int:
+    elif type(steamid) == int:
         # [NEEDS IMPROVED]
         # this isn't random, nor conclusive method of generating steamids
-        for i in range(0,id):
+        for i in range(0,steamid):
             ids = ids + ",%s" % SteamID(id=randint(1, 1000000000), 
                                         type="Individual", 
                                         universe="Public", 
@@ -163,6 +163,14 @@ def get_profiles(id):
         if p.profilestate == 1 and p.communityvisibilitystate == 3:
             # get attributes from community profile 
             p.summary, p.vacBanned, p.tradeBanState, p.links = get_community_profile(p.steamid)
+    # commit profiles to db
+    cnx, c = connect_db()
+    for p in profiles:
+        c.execute("INSERT INTO profiles (steamid, communityvisibilitystate, profilestate, personaname, profileurl, avatar, timecreated, summary, vacBanned, tradeBanState) "
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                    "ON DUPLICATE KEY UPDATE updated_at=NOW()",
+                    (p.steamid, p.communityvisibilitystate, p.profilestate, p.personaname, p.profileurl, p.avatar, p.timecreated, p.summary, p.vacBanned, p.tradeBanState))
+        cnx.commit()
     return profiles
 
 
@@ -220,25 +228,6 @@ def check_urls(urls):
             pass
     cnx.close()
     return threats
-
-
-# get links, return urls
-def get_links(profiles):
-    profile_links = []
-    for p in profiles:
-        # connect to database (connection, cursor)
-        cnx, c = connect_db()
-        # commit profile to db
-        c.execute("INSERT INTO profiles (steamid, communityvisibilitystate, profilestate, personaname, profileurl, avatar, timecreated, summary, vacBanned, tradeBanState) "
-                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
-                    "ON DUPLICATE KEY UPDATE updated_at=NOW()",
-                    (p.steamid, p.communityvisibilitystate, p.profilestate, p.personaname, p.profileurl, p.avatar, p.timecreated, p.summary, p.vacBanned, p.tradeBanState))
-        cnx.commit()
-        # find links in summary
-        if p.summary is not None:
-            for l in find_links(p.summary, p.steamid, cnx, c):
-                profile_links.append(l)
-    return profile_links
 
 
 # convert profiles to json
