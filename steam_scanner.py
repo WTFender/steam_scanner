@@ -52,7 +52,8 @@ def connect_db():
             database=db_name,
             # for TCP connection, uncomment db_host, comment out query
             # host=db_host
-            query={'unix_socket': '/cloudsql/{}'.format(db_proxy)}))
+            query={'unix_socket': '/cloudsql/{}'.format(db_proxy)}),
+            poolclass=sqlalchemy.pool.NullPool)
     # return cursor
     return db.connect()
 
@@ -95,8 +96,6 @@ def find_links(summary, steamid):
         soup = BeautifulSoup(summary, "html.parser")
     except:
         return urls
-    # connect to database
-    db = connect_db()
     # steam href tags anything that looks like a link
     # scrape href tags (urls) from summary html
     for link in soup.findAll('a', attrs={'href': re.compile("^https?://")}):
@@ -107,6 +106,8 @@ def find_links(summary, steamid):
             print(e)
             print(link)
             continue
+        # connect to database
+        db = connect_db()
         # commit link to db
         db.execute("INSERT INTO links (url, display) "
                     "VALUES (%s, %s) "
@@ -116,6 +117,7 @@ def find_links(summary, steamid):
         db.execute("INSERT IGNORE INTO profile_links (url, steamid) "
                     "VALUES (%s, %s)",
                     (url, steamid))
+        db.close()
     return urls
 
 
@@ -167,12 +169,13 @@ def get_profiles(steamid):
             # get attributes from community profile 
             p.summary, p.vacBanned, p.tradeBanState, p.links = get_community_profile(p.steamid)
     # commit profiles to db
-    db = connect_db()
     for p in profiles:
+        db = connect_db()
         db.execute("INSERT INTO profiles (steamid, communityvisibilitystate, profilestate, personaname, profileurl, avatar, timecreated, summary, vacBanned, tradeBanState) "
                     "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
                     "ON DUPLICATE KEY UPDATE updated_at=NOW()",
                     (p.steamid, p.communityvisibilitystate, p.profilestate, p.personaname, p.profileurl, p.avatar, p.timecreated, p.summary, p.vacBanned, p.tradeBanState))
+        db.close()
     return profiles
 
 
@@ -215,14 +218,15 @@ def check_urls(urls):
     for url in urls:
         entries.append({"url": url})
     try:
-        # connect to database
-        db = connect_db()
         # submit urls to be scanned, returns threat matches
         for match in scan_urls(entries)['matches']:
+            # connect to database
+            db = connect_db()
             threats.append({"url": match['threat']['url'], "threatType": match['threatType']})
             # commit updated link threat info to db
             db.execute("UPDATE links SET is_threat = 1, threatType = %s, threatEntryType = %s WHERE url = %s",
                         (match['threatType'], match['threatEntryType'], match['threat']['url']))
+            db.close()
     except KeyError as e:
         # no matches, handle gracefully
         if str(e) == "'matches'":
