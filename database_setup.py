@@ -54,4 +54,4 @@ c.execute("CREATE TABLE IF NOT EXISTS profile_links ("
                 "FOREIGN KEY (url) REFERENCES links (url) ON DELETE CASCADE,"
                 "FOREIGN KEY (steamid) REFERENCES profiles (steamid) ON DELETE CASCADE)")
 cnx.commit()
-print "Database tables created."
+print("Database tables created.")
