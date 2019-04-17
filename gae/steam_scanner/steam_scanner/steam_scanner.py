@@ -16,6 +16,7 @@ class Profile:
     def __init__(self, steamid, communityvisibilitystate, profilestate,
                     personaname, profileurl, avatar, timecreated):
         self.steamid = steamid
+        self.steamid_found = 1
         self.communityvisibilitystate = communityvisibilitystate
         self.profilestate = profilestate
         self.personaname = personaname
@@ -41,17 +42,14 @@ def connect_db():
     db_user = environ["MYSQL_USER"]
     db_pass = environ["MYSQL_PASS"]
     db_name = environ["MYSQL_NAME"]
-    # for TCP connection, uncomment db_host, comment out db_proxy
-    # db_host = "127.0.0.1"
+    # db_host = "127.0.0.1" # for TCP connection, uncomment db_host, comment out db_proxy
     db_proxy = environ["MYSQL_PROXY"]
-
     db = sqlalchemy.create_engine(sqlalchemy.engine.url.URL(
             drivername='mysql+mysqlconnector',
             username=db_user,
             password=db_pass,
             database=db_name,
-            # for TCP connection, uncomment db_host, comment out query
-            # host=db_host
+            # host=db_host), # for TCP connection, uncomment db_host, comment out query
             query={'unix_socket': '/cloudsql/{}'.format(db_proxy)}),
             poolclass=sqlalchemy.pool.NullPool)
     # return cursor
@@ -60,17 +58,17 @@ def connect_db():
 
 # get community profile info
 def get_community_profile(steamid):
-    r = requests.get("https://steamcommunity.com/profiles/%s/?xml=1" % steamid)
-    try:
-        xml = ElementTree.fromstring(r.content)
-    # gracefully handle empty profiles
-    except Exception as e:
-        print(e)
-        print(r.content)
     links = []
     summary = None
     vacBanned = 0
     tradeBanState = None
+    r = requests.get("https://steamcommunity.com/profiles/%s/?xml=1" % steamid)
+    try:
+        xml = ElementTree.fromstring(r.content)
+    # gracefully handle empty/crazy profiles
+    except Exception as e:
+        # return empty
+        return summary, vacBanned, tradeBanState, links 
     # find attributes in XML profile
     for child in xml:
         try:
@@ -139,6 +137,12 @@ def get_profiles(steamid):
     s_api_key = environ['STEAM_API_KEY']
     steam_api = WebAPI(key=s_api_key)
     players = steam_api.call('ISteamUser.GetPlayerSummaries', steamids=ids)['response']['players'] 
+    # return empty profile only for single steamid scan
+    if not players and len(steamid) == 17:
+        # empty profile
+        p = Profile(steamid, 0, 0, 0, 0, 0, 0)
+        p.steamid_found = False
+        return [p]
     # build profile objects
     profiles = []
     for p in players:
@@ -156,9 +160,8 @@ def get_profiles(steamid):
             tc = 0
         try:
             # create profile object
-            profiles.append(Profile(
-                    p["steamid"], p["communityvisibilitystate"], state,
-                    p["personaname"], p["profileurl"], p["avatar"], tc))
+            profiles.append(Profile(p["steamid"], p["communityvisibilitystate"], state,
+                                    p["personaname"], p["profileurl"], p["avatar"], tc))
         except Exception as e:
             # if no steam64id, discard
             if str(e) == "'steamid'":
@@ -234,8 +237,8 @@ def check_urls(urls):
     return threats
 
 
-# convert profiles to json
-def profiles_to_json(profiles):
+# convert profiles to json string
+def profiles_to_json_string(profiles):
     # convert objects to dicts
     dict_profiles = []
     for p in profiles:
@@ -244,7 +247,7 @@ def profiles_to_json(profiles):
             links.append(l.__dict__)
         p.links = links
         dict_profiles.append(p.__dict__)
-    # convert dicts to json
+    # convert dicts to json string
     return json.dumps(dict_profiles)
 
 
@@ -254,10 +257,10 @@ def scan_profiles(ids):
     # updates profile links with threats
     profiles = check_profile_urls(profiles)
     # return profile with associated links
-    return profiles_to_json(profiles)
+    return profiles_to_json_string(profiles)
 
 
-def print_scan_details(scan):
+def get_scan_details(scan):
     p_count = 0
     l_count = 0
     t_count = 0
@@ -267,18 +270,16 @@ def print_scan_details(scan):
             l_count += 1
             if l['is_threat'] == 1:
                 t_count += 1
-    print(("%s: Scanned %s profiles with %s links containing %s threats.") %
+    # return scan details string
+    return (("%s: Scanned %s profiles with %s links containing %s threats.") %
                 (datetime.now(), p_count, l_count, t_count))
 
 
 def main():
-    # scan specific steam profiles: give str(steam64id)
-    # scan n number of profiles: give int(n)
-    scan = scan_profiles(100)
-    # print scan summary
-    print_scan_details(scan)
-    # uncomment to print json
-    # print(scan)
+    scan = scan_profiles(100)         # scan batch of random profiles (max 100)
+    # scan = scan_profiles(steamid64) # or scan specific steamid64
+    print(get_scan_details(scan))     # print scan details
+    # print(scan)                     # print raw json
 
 
 if __name__ == "__main__":
