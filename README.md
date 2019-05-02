@@ -85,20 +85,6 @@ GROUP BY threatType;
 |        1 | SOCIAL_ENGINEERING |
 |        2 | UNWANTED_SOFTWARE  |
 +----------+--------------------+
-
-SELECT p.personaname AS name, p.profileurl, count(pl.url) as bad_links
-FROM links l
-LEFT JOIN profile_links pl ON l.url=pl.url
-LEFT JOIN profiles p ON pl.steamid=p.steamid
-WHERE l.is_threat=1
-GROUP BY pl.steamid;
-
-+--------------------+------------+-----------+---------------+-----------+
-| name               | profileurl | vacBanned | tradeBanState | bad_links |
-+--------------------+------------+-----------+---------------+-----------+
-| Mr. Cringer Pants  | ...snip... |         0 | None          |         2 |
-| imgur.com@!)%)     | ...snip... |         0 | None          |         2 |
-+--------------------+------------+-----------+---------------+-----------+
 ```
 
 ## visualize
